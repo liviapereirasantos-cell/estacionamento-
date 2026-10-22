@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Estacionamento</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 1.25rem;
+            border: 1px solid #e5e7eb;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.15s;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-success {
+            background: #16a34a;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #15803d;
+        }
+
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        .btn-gray {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+
+        .btn-gray:hover {
+            background: #d1d5db;
+        }
+
+        .input {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            outline: none;
+        }
+
+        .input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .tab {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            background: #e5e7eb;
+            color: #1f2937;
+            cursor: pointer;
+            border: none;
+            font-weight: 500;
+        }
+
+        .tab.active {
+            background: #2563eb;
+            color: white;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.875rem;
+        }
+
+        th {
+            background: #f3f4f6;
+            font-weight: 600;
+        }
+
+        .badge-livre {
+            background: #dcfce7;
+            color: #166534;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-ocupada {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-pref {
+            background: #fef9c3;
+            color: #854d0e;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+    <div class="max-w-6xl mx-auto p-4 md:p-6">
+
+        <!-- Cabeçalho -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-800">🅿️ Sistema de Estacionamento</h1>
+                <p class="text-gray-500 text-sm">Controle completo de vagas, veículos e pagamentos</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="exportarDB()" class="btn btn-gray text-sm">Exportar BD</button>
+                <button onclick="resetarDB()" class="btn btn-danger text-sm">Resetar</button>
+            </div>
+        </div>
+
+        <!-- Abas -->
+        <div class="flex flex-wrap gap-2 mb-6">
+            <button class="tab active" data-tab="entrada">Entrada / Saída</button>
+            <button class="tab" data-tab="dashboard">Dashboard</button>
+            <button class="tab" data-tab="vagas">Vagas</button>
+            <button class="tab" data-tab="precos">Preços</button>
+            <button class="tab" data-tab="relatorios">Relatórios</button>
+        </div>
+
+        <!-- ===================== ENTRADA / SAÍDA ===================== -->
+        <div id="tab-entrada" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+                <!-- ENTRADA -->
+                <div class="card">
+                    <h2 class="text-lg font-semibold text-green-700 mb-4">➕ Registrar Entrada</h2>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Placa *</label>
+                            <input type="text" id="placa" class="input uppercase" placeholder="ABC1D23" maxlength="8">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nome do Cliente</label>
+                                <input type="text" id="nome" class="input" placeholder="João Silva">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                                <input type="text" id="telefone" class="input" placeholder="(11) 99999-9999">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Marca</label>
+                                <input type="text" id="marca" class="input" placeholder="Toyota">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
+                                <input type="text" id="modelo" class="input" placeholder="Corolla">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Cor</label>
+                                <input type="text" id="cor" class="input" placeholder="Prata">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Ano</label>
+                                <input type="number" id="ano" class="input" placeholder="2022">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                                <select id="tipo" class="input">
+                                    <option value="carro">Carro</option>
+                                    <option value="moto">Moto</option>
+                                    <option value="caminhao">Caminhão</option>
+                                    <option value="van">Van</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Vaga *</label>
+                                <select id="vaga" class="input"></select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Cobrança</label>
+                                <select id="cobranca" class="input">
+                                    <option value="hora">Por Hora</option>
+                                    <option value="diaria">Diária</option>
+                                    <option value="mensal">Mensal</option>
+                                    <option value="anual">Anual</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button onclick="fazerEntrada()" class="btn btn-success w-full mt-2">
+                            Registrar Entrada
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SAÍDA -->
+                <div class="card">
+                    <h2 class="text-lg font-semibold text-red-700 mb-4">🚪 Registrar Saída</h2>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Veículo estacionado</label>
+                            <select id="saida-select" class="input" onchange="mostrarValor()"></select>
+                        </div>
+
+                        <div id="info-saida" class="bg-gray-50 rounded-lg p-4 text-sm hidden"></div>
+
+                        <button onclick="fazerSaida()" class="btn btn-danger w-full">
+                            Registrar Saída e Cobrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de estacionados -->
+            <div class="card mt-5">
+                <h2 class="text-lg font-semibold mb-3">Veículos estacionados agora</h2>
+                <div class="overflow-x-auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Placa</th>
+                                <th>Cliente</th>
+                                <th>Marca / Modelo</th>
+                                <th>Cor</th>
+                                <th>Vaga</th>
+                                <th>Entrada</th>
+                                <th>Cobrança</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-estacionados"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== DASHBOARD ===================== -->
+        <div id="tab-dashboard" class="tab-content hidden">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="card text-center">
+                    <p class="text-sm text-gray-500">Vagas Livres</p>
+                    <p id="stat-livres" class="text-3xl font-bold text-green-600">0</p>
+                </div>
+                <div class="card text-center">
+                    <p class="text-sm text-gray-500">Ocupadas</p>
+                    <p id="stat-ocupadas" class="text-3xl font-bold text-red-600">0</p>
+                </div>
+                <div class="card text-center">
+                    <p class="text-sm text-gray-500">Clientes</p>
+                    <p id="stat-clientes" class="text-3xl font-bold text-blue-600">0</p>
+                </div>
+                <div class="card text-center">
+                    <p class="text-sm text-gray-500">Veículos</p>
+                    <p id="stat-veiculos" class="text-3xl font-bold text-purple-600">0</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="text-lg font-semibold mb-3">Últimos movimentos</h2>
+                <div class="overflow-x-auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Placa</th>
+                                <th>Vaga</th>
+                                <th>Entrada</th>
+                                <th>Saída</th>
+                                <th>Valor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-ultimos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== VAGAS ===================== -->
+        <div id="tab-vagas" class="tab-content hidden">
+            <div class="card mb-4">
+                <h2 class="text-lg font-semibold mb-3">Adicionar Vaga</h2>
+                <div class="flex flex-wrap gap-3 items-end">
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Número</label>
+                        <input type="text" id="nova-vaga" class="input w-28" placeholder="A01">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Tipo</label>
+                        <select id="tipo-vaga" class="input w-40">
+                            <option value="normal">Normal</option>
+                            <option value="preferencial">Preferencial</option>
+                        </select>
+                    </div>
+                    <button onclick="adicionarVaga()" class="btn btn-primary">Adicionar</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="overflow-x-auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Número</th>
+                                <th>Tipo</th>
+                                <th>Status</th>
+                                <th>Veículo</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-vagas"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== PREÇOS ===================== -->
+        <div id="tab-precos" class="tab-content hidden">
+            <div class="card mb-4">
+                <h2 class="text-lg font-semibold mb-3">Atualizar Preço</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Tipo</label>
+                        <select id="preco-tipo" class="input">
+                            <option value="hora">Hora</option>
+                            <option value="diaria">Diária</option>
+                            <option value="mensal">Mensal</option>
+                            <option value="anual">Anual</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Valor (R$)</label>
+                        <input type="number" id="preco-valor" class="input" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    <button onclick="salvarPreco()" class="btn btn-primary">Salvar</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Valor</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-precos"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ===================== RELATÓRIOS ===================== -->
+        <div id="tab-relatorios" class="tab-content hidden">
+            <div class="card mb-4">
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="relatorio('ocupacao')" class="btn btn-primary">Ocupação Atual</button>
+                    <button onclick="relatorio('financeiro')" class="btn btn-primary">Financeiro Hoje</button>
+                    <button onclick="relatorio('historico')" class="btn btn-primary">Histórico</button>
+                </div>
+            </div>
+            <div class="card">
+                <div id="conteudo-relatorio" class="overflow-x-auto text-sm">
+                    <p class="text-gray-500">Escolha um relatório acima.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let db = null;
+
+        // ========== INICIALIZAÇÃO ==========
+        async function iniciar() {
+            try {
+                const SQL = await initSqlJs({
+                    locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`
+                });
+
+                const salvo = localStorage.getItem('estacionamento_db');
+                if (salvo) {
+                    db = new SQL.Database(new Uint8Array(JSON.parse(salvo)));
+                } else {
+                    db = new SQL.Database();
+                    criarTabelas();
+                    dadosIniciais();
+                }
+                atualizarTudo();
+            } catch (e) {
+                alert('Erro ao carregar o banco. Verifique sua conexão com a internet (precisa carregar o sql.js uma vez).');
+                console.error(e);
+            }
+        }
+
+        function criarTabelas() {
+            db.run(`
+        CREATE TABLE IF NOT EXISTS clientes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nome TEXT,
+          telefone TEXT
+        );
+        CREATE TABLE IF NOT EXISTS veiculos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          placa TEXT UNIQUE NOT NULL,
+          cliente_id INTEGER,
+          marca TEXT,
+          modelo TEXT,
+          cor TEXT,
+          ano INTEGER,
+          tipo TEXT DEFAULT 'carro'
+        );
+        CREATE TABLE IF NOT EXISTS vagas (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          numero TEXT UNIQUE NOT NULL,
+          tipo TEXT DEFAULT 'normal',
+          status TEXT DEFAULT 'livre'
+        );
+        CREATE TABLE IF NOT EXISTS precos (
+          tipo TEXT PRIMARY KEY,
+          valor REAL NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS movimentos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          veiculo_id INTEGER,
+          vaga_id INTEGER,
+          entrada TEXT,
+          saida TEXT,
+          tipo_cobranca TEXT,
+          valor_pago REAL,
+          status TEXT DEFAULT 'aberto'
+        );
+      `);
+        }
+
+        function dadosIniciais() {
+            db.run(`INSERT OR IGNORE INTO precos (tipo, valor) VALUES 
+        ('hora', 8), ('diaria', 45), ('mensal', 350), ('anual', 3200)`);
+
+            const vagas = [
+                ['A01', 'normal'], ['A02', 'normal'], ['A03', 'preferencial'],
+                ['B01', 'normal'], ['B02', 'preferencial'], ['B03', 'normal'],
+                ['C01', 'normal'], ['C02', 'normal'], ['C03', 'preferencial']
+            ];
+            vagas.forEach(([n, t]) => {
+                db.run(`INSERT OR IGNORE INTO vagas (numero, tipo) VALUES (?, ?)`, [n, t]);
+            });
+            salvar();
+        }
+
+        function salvar() {
+            const data = db.export();
+            localStorage.setItem('estacionamento_db', JSON.stringify(Array.from(data)));
+        }
+
+        function exportarDB() {
+            const data = db.export();
+            const blob = new Blob([data], { type: 'application/octet-stream' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'estacionamento.sqlite';
+            a.click();
+        }
+
+        function resetarDB() {
+            if (confirm('Apagar todos os dados e recomeçar?')) {
+                localStorage.removeItem('estacionamento_db');
+                location.reload();
+            }
+        }
+
+        // ========== FUNÇÕES AUXILIARES ==========
+        function q(sql, params = []) {
+            const stmt = db.prepare(sql);
+            stmt.bind(params);
+            const rows = [];
+            while (stmt.step()) rows.push(stmt.getAsObject());
+            stmt.free();
+            return rows;
+        }
+
+        function exec(sql, params = []) {
+            db.run(sql, params);
+            salvar();
+        }
+
+        function fmtData(d) {
+            if (!d) return '-';
+            return new Date(d).toLocaleString('pt-BR');
+        }
+
+        function fmtMoeda(v) {
+            return 'R$ ' + (Number(v) || 0).toFixed(2).replace('.', ',');
+        }
+
+        // ========== NAVEGAÇÃO ==========
+        document.querySelectorAll('.tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+
+                if (btn.dataset.tab === 'entrada') {
+                    carregarVagasLivres();
+                    carregarEstacionados();
+                    carregarSelectSaida();
+                }
+                if (btn.dataset.tab === 'dashboard') atualizarDashboard();
+                if (btn.dataset.tab === 'vagas') carregarVagas();
+                if (btn.dataset.tab === 'precos') carregarPrecos();
+            });
+        });
+
+        // ========== ENTRADA ==========
+        function fazerEntrada() {
+            const placa = document.getElementById('placa').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const nome = document.getElementById('nome').value.trim();
+            const telefone = document.getElementById('telefone').value.trim();
+            const marca = document.getElementById('marca').value.trim();
+            const modelo = document.getElementById('modelo').value.trim();
+            const cor = document.getElementById('cor').value.trim();
+            const ano = document.getElementById('ano').value || null;
+            const tipo = document.getElementById('tipo').value;
+            const vagaId = document.getElementById('vaga').value;
+            const cobranca = document.getElementById('cobranca').value;
+
+            if (!placa || placa.length < 7) {
+                alert('Digite uma placa válida');
+                return;
+            }
+            if (!vagaId) {
+                alert('Selecione uma vaga');
+                return;
+            }
+
+            // Verifica se já está estacionado
+            let veiculo = q(`SELECT id FROM veiculos WHERE placa = ?`, [placa])[0];
+            if (veiculo) {
+                const aberto = q(`SELECT id FROM movimentos WHERE veiculo_id = ? AND status = 'aberto'`, [veiculo.id])[0];
+                if (aberto) {
+                    alert('Este veículo já está estacionado!');
+                    return;
+                }
+            }
+
+            // Cria ou atualiza cliente e veículo
+            let clienteId = null;
+            if (nome) {
+                if (veiculo) {
+                    const v = q(`SELECT cliente_id FROM veiculos WHERE id = ?`, [veiculo.id])[0];
+                    if (v.cliente_id) {
+                        exec(`UPDATE clientes SET nome = ?, telefone = ? WHERE id = ?`, [nome, telefone, v.cliente_id]);
+                        clienteId = v.cliente_id;
+                    } else {
+                        exec(`INSERT INTO clientes (nome, telefone) VALUES (?, ?)`, [nome, telefone]);
+                        clienteId = q(`SELECT last_insert_rowid() as id`)[0].id;
+                    }
+                } else {
+                    exec(`INSERT INTO clientes (nome, telefone) VALUES (?, ?)`, [nome, telefone]);
+                    clienteId = q(`SELECT last_insert_rowid() as id`)[0].id;
+                }
+            }
+
+            if (!veiculo) {
+                exec(`INSERT INTO veiculos (placa, cliente_id, marca, modelo, cor, ano, tipo) VALUES (?,?,?,?,?,?,?)`,
+                    [placa, clienteId, marca, modelo, cor, ano, tipo]);
+                veiculo = q(`SELECT id FROM veiculos WHERE placa = ?`, [placa])[0];
+            } else {
+                exec(`UPDATE veiculos SET 
+          cliente_id = COALESCE(?, cliente_id),
+          marca = COALESCE(NULLIF(?, ''), marca),
+          modelo = COALESCE(NULLIF(?, ''), modelo),
+          cor = COALESCE(NULLIF(?, ''), cor),
+          ano = COALESCE(?, ano),
+          tipo = ?
+          WHERE id = ?`, [clienteId, marca, modelo, cor, ano, tipo, veiculo.id]);
+            }
+
+            // Registra movimento
+            const agora = new Date().toISOString();
+            exec(`INSERT INTO movimentos (veiculo_id, vaga_id, entrada, tipo_cobranca, status) VALUES (?,?,?,?,'aberto')`,
+                [veiculo.id, vagaId, agora, cobranca]);
+            exec(`UPDATE vagas SET status = 'ocupada' WHERE id = ?`, [vagaId]);
+
+            // Limpa formulário
+            ['placa', 'nome', 'telefone', 'marca', 'modelo', 'cor', 'ano'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+
+            carregarVagasLivres();
+            carregarEstacionados();
+            carregarSelectSaida();
+            atualizarDashboard();
+            alert('Entrada registrada com sucesso!');
+        }
+
+        // ========== SAÍDA ==========
+        function carregarSelectSaida() {
+            const rows = q(`
+        SELECT m.id, v.placa, vg.numero
+        FROM movimentos m
+        JOIN veiculos v ON v.id = m.veiculo_id
+        JOIN vagas vg ON vg.id = m.vaga_id
+        WHERE m.status = 'aberto'
+        ORDER BY m.entrada
+      `);
+            const sel = document.getElementById('saida-select');
+            sel.innerHTML = '<option value="">-- Selecione --</option>' +
+                rows.map(r => `<option value="${r.id}">${r.placa} • Vaga ${r.numero}</option>`).join('');
+            document.getElementById('info-saida').classList.add('hidden');
+        }
+
+        function mostrarValor() {
+            const id = document.getElementById('saida-select').value;
+            const div = document.getElementById('info-saida');
+            if (!id) {
+                div.classList.add('hidden');
+                return;
+            }
+
+            const m = q(`
+        SELECT m.*, v.placa, v.marca, v.modelo, v.cor, vg.numero, c.nome, p.valor
+        FROM movimentos m
+        JOIN veiculos v ON v.id = m.veiculo_id
+        JOIN vagas vg ON vg.id = m.vaga_id
+        LEFT JOIN clientes c ON c.id = v.cliente_id
+        LEFT JOIN precos p ON p.tipo = m.tipo_cobranca
+        WHERE m.id = ?
+      `, [id])[0];
+
+            const entrada = new Date(m.entrada);
+            const agora = new Date();
+            const horas = Math.max(1, Math.ceil((agora - entrada) / 3600000));
+            const valor = m.tipo_cobranca === 'hora' ? horas * (m.valor || 0) : (m.valor || 0);
+
+            div.innerHTML = `
+        <p><b>Placa:</b> ${m.placa}</p>
+        <p><b>Cliente:</b> ${m.nome || '-'}</p>
+        <p><b>Veículo:</b> ${m.marca || ''} ${m.modelo || ''} • ${m.cor || '-'}</p>
+        <p><b>Vaga:</b> ${m.numero}</p>
+        <p><b>Entrada:</b> ${fmtData(m.entrada)}</p>
+        <p><b>Tempo:</b> ~${horas} hora(s)</p>
+        <p class="text-lg font-bold text-green-700 mt-2">Valor: ${fmtMoeda(valor)}</p>
+      `;
+            div.classList.remove('hidden');
+        }
+
+        function fazerSaida() {
+            const id = document.getElementById('saida-select').value;
+            if (!id) {
+                alert('Selecione um veículo');
+                return;
+            }
+
+            const m = q(`
+        SELECT m.*, p.valor
+        FROM movimentos m
+        LEFT JOIN precos p ON p.tipo = m.tipo_cobranca
+        WHERE m.id = ?
+      `, [id])[0];
+
+            const entrada = new Date(m.entrada);
+            const saida = new Date();
+            const horas = Math.max(1, Math.ceil((saida - entrada) / 3600000));
+            const valor = m.tipo_cobranca === 'hora' ? horas * (m.valor || 0) : (m.valor || 0);
+
+            exec(`UPDATE movimentos SET saida = ?, valor_pago = ?, status = 'fechado' WHERE id = ?`,
+                [saida.toISOString(), valor, id]);
+            exec(`UPDATE vagas SET status = 'livre' WHERE id = ?`, [m.vaga_id]);
+
+            carregarVagasLivres();
+            carregarEstacionados();
+            carregarSelectSaida();
+            atualizarDashboard();
+            alert(`Saída registrada!\nValor a pagar: ${fmtMoeda(valor)}`);
+        }
+
+        // ========== LISTAS ==========
+        function carregarVagasLivres() {
+            const rows = q(`SELECT id, numero, tipo FROM vagas WHERE status = 'livre' ORDER BY numero`);
+            document.getElementById('vaga').innerHTML = rows.length
+                ? rows.map(r => `<option value="${r.id}">${r.numero} (${r.tipo})</option>`).join('')
+                : '<option value="">Nenhuma vaga livre</option>';
+        }
+
+        function carregarEstacionados() {
+            const rows = q(`
+        SELECT v.placa, c.nome, v.marca, v.modelo, v.cor, vg.numero, m.entrada, m.tipo_cobranca
+        FROM movimentos m
+        JOIN veiculos v ON v.id = m.veiculo_id
+        JOIN vagas vg ON vg.id = m.vaga_id
+        LEFT JOIN clientes c ON c.id = v.cliente_id
+        WHERE m.status = 'aberto'
+        ORDER BY m.entrada
+      `);
+            document.getElementById('lista-estacionados').innerHTML = rows.map(r => `
+        <tr>
+          <td class="font-mono font-medium">${r.placa}</td>
+          <td>${r.nome || '-'}</td>
+          <td>${r.marca || ''} ${r.modelo || ''}</td>
+          <td>${r.cor || '-'}</td>
+          <td>${r.numero}</td>
+          <td>${fmtData(r.entrada)}</td>
+          <td class="capitalize">${r.tipo_cobranca}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="7" class="text-center text-gray-400 py-4">Nenhum veículo estacionado</td></tr>';
+        }
+
+        function atualizarDashboard() {
+            document.getElementById('stat-livres').textContent = q(`SELECT COUNT(*) as c FROM vagas WHERE status='livre'`)[0]?.c || 0;
+            document.getElementById('stat-ocupadas').textContent = q(`SELECT COUNT(*) as c FROM vagas WHERE status='ocupada'`)[0]?.c || 0;
+            document.getElementById('stat-clientes').textContent = q(`SELECT COUNT(*) as c FROM clientes`)[0]?.c || 0;
+            document.getElementById('stat-veiculos').textContent = q(`SELECT COUNT(*) as c FROM veiculos`)[0]?.c || 0;
+
+            const ultimos = q(`
+        SELECT v.placa, vg.numero, m.entrada, m.saida, m.valor_pago
+        FROM movimentos m
+        JOIN veiculos v ON v.id = m.veiculo_id
+        JOIN vagas vg ON vg.id = m.vaga_id
+        ORDER BY m.id DESC LIMIT 10
+      `);
+            document.getElementById('lista-ultimos').innerHTML = ultimos.map(r => `
+        <tr>
+          <td class="font-mono">${r.placa}</td>
+          <td>${r.numero}</td>
+          <td>${fmtData(r.entrada)}</td>
+          <td>${fmtData(r.saida)}</td>
+          <td>${r.valor_pago ? fmtMoeda(r.valor_pago) : '-'}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="5" class="text-center text-gray-400">Nenhum movimento</td></tr>';
+        }
+
+        // ========== VAGAS ==========
+        function adicionarVaga() {
+            const numero = document.getElementById('nova-vaga').value.trim().toUpperCase();
+            const tipo = document.getElementById('tipo-vaga').value;
+            if (!numero) return alert('Informe o número');
+            try {
+                exec(`INSERT INTO vagas (numero, tipo) VALUES (?, ?)`, [numero, tipo]);
+                document.getElementById('nova-vaga').value = '';
+                carregarVagas();
+                carregarVagasLivres();
+                atualizarDashboard();
+            } catch (e) {
+                alert('Vaga já existe');
+            }
+        }
+
+        function carregarVagas() {
+            const rows = q(`
+        SELECT vg.*, v.placa
+        FROM vagas vg
+        LEFT JOIN movimentos m ON m.vaga_id = vg.id AND m.status = 'aberto'
+        LEFT JOIN veiculos v ON v.id = m.veiculo_id
+        ORDER BY vg.numero
+      `);
+            document.getElementById('lista-vagas').innerHTML = rows.map(r => `
+        <tr>
+          <td class="font-medium">${r.numero}</td>
+          <td>${r.tipo === 'preferencial' ? '<span class="badge-pref">preferencial</span>' : r.tipo}</td>
+          <td><span class="${r.status === 'livre' ? 'badge-livre' : 'badge-ocupada'}">${r.status}</span></td>
+          <td class="font-mono">${r.placa || '-'}</td>
+          <td>${r.status === 'livre' ? `<button onclick="excluirVaga(${r.id})" class="text-red-600 text-sm">Excluir</button>` : ''}</td>
+        </tr>
+      `).join('');
+        }
+
+        function excluirVaga(id) {
+            if (confirm('Excluir vaga?')) {
+                exec(`DELETE FROM vagas WHERE id = ?`, [id]);
+                carregarVagas();
+                carregarVagasLivres();
+                atualizarDashboard();
+            }
+        }
+
+        // ========== PREÇOS ==========
+        function salvarPreco() {
+            const tipo = document.getElementById('preco-tipo').value;
+            const valor = parseFloat(document.getElementById('preco-valor').value);
+            if (isNaN(valor) || valor < 0) return alert('Valor inválido');
+            exec(`INSERT INTO precos (tipo, valor) VALUES (?, ?) ON CONFLICT(tipo) DO UPDATE SET valor = excluded.valor`, [tipo, valor]);
+            document.getElementById('preco-valor').value = '';
+            carregarPrecos();
+        }
+
+        function carregarPrecos() {
+            const rows = q(`SELECT * FROM precos ORDER BY CASE tipo WHEN 'hora' THEN 1 WHEN 'diaria' THEN 2 WHEN 'mensal' THEN 3 ELSE 4 END`);
+            document.getElementById('lista-precos').innerHTML = rows.map(r => `
+        <tr>
+          <td class="capitalize">${r.tipo}</td>
+          <td class="font-medium">${fmtMoeda(r.valor)}</td>
+          <td><button onclick="document.getElementById('preco-tipo').value='${r.tipo}';document.getElementById('preco-valor').value=${r.valor}" class="text-blue-600 text-sm">Editar</button></td>
+        </tr>
+      `).join('');
+        }
+
+        // ========== RELATÓRIOS ==========
+        function relatorio(tipo) {
+            const div = document.getElementById('conteudo-relatorio');
+            let html = '';
+
+            if (tipo === 'ocupacao') {
+                const rows = q(`
+          SELECT vg.numero, vg.tipo, vg.status, v.placa, v.marca, v.modelo, m.entrada
+          FROM vagas vg
+          LEFT JOIN movimentos m ON m.vaga_id = vg.id AND m.status = 'aberto'
+          LEFT JOIN veiculos v ON v.id = m.veiculo_id
+          ORDER BY vg.numero
+        `);
+                html = `<h3 class="font-semibold mb-3">Ocupação Atual</h3>
+          <table><thead><tr><th>Vaga</th><th>Tipo</th><th>Status</th><th>Placa</th><th>Veículo</th><th>Desde</th></tr></thead>
+          <tbody>${rows.map(r => `
+            <tr>
+              <td>${r.numero}</td>
+              <td>${r.tipo}</td>
+              <td>${r.status}</td>
+              <td class="font-mono">${r.placa || '-'}</td>
+              <td>${r.marca || ''} ${r.modelo || ''}</td>
+              <td>${fmtData(r.entrada)}</td>
+            </tr>`).join('')}</tbody></table>`;
+            }
+
+            if (tipo === 'financeiro') {
+                const rows = q(`
+          SELECT v.placa, m.entrada, m.saida, m.tipo_cobranca, m.valor_pago
+          FROM movimentos m
+          JOIN veiculos v ON v.id = m.veiculo_id
+          WHERE m.status = 'fechado' AND date(m.saida) = date('now')
+        `);
+                const total = rows.reduce((s, r) => s + (r.valor_pago || 0), 0);
+                html = `<h3 class="font-semibold mb-2">Financeiro de Hoje</h3>
+          <p class="text-xl font-bold text-green-700 mb-4">Total arrecadado: ${fmtMoeda(total)}</p>
+          <table><thead><tr><th>Placa</th><th>Entrada</th><th>Saída</th><th>Tipo</th><th>Valor</th></tr></thead>
+          <tbody>${rows.map(r => `
+            <tr>
+              <td class="font-mono">${r.placa}</td>
+              <td>${fmtData(r.entrada)}</td>
+              <td>${fmtData(r.saida)}</td>
+              <td class="capitalize">${r.tipo_cobranca}</td>
+              <td>${fmtMoeda(r.valor_pago)}</td>
+            </tr>`).join('') || '<tr><td colspan="5">Nenhum pagamento hoje</td></tr>'}</tbody></table>`;
+            }
+
+            if (tipo === 'historico') {
+                const rows = q(`
+          SELECT v.placa, vg.numero, m.entrada, m.saida, m.tipo_cobranca, m.valor_pago, m.status
+          FROM movimentos m
+          JOIN veiculos v ON v.id = m.veiculo_id
+          JOIN vagas vg ON vg.id = m.vaga_id
+          ORDER BY m.id DESC LIMIT 30
+        `);
+                html = `<h3 class="font-semibold mb-3">Histórico (últimos 30)</h3>
+          <table><thead><tr><th>Placa</th><th>Vaga</th><th>Entrada</th><th>Saída</th><th>Tipo</th><th>Valor</th><th>Status</th></tr></thead>
+          <tbody>${rows.map(r => `
+            <tr>
+              <td class="font-mono">${r.placa}</td>
+              <td>${r.numero}</td>
+              <td>${fmtData(r.entrada)}</td>
+              <td>${fmtData(r.saida)}</td>
+              <td class="capitalize">${r.tipo_cobranca}</td>
+              <td>${r.valor_pago ? fmtMoeda(r.valor_pago) : '-'}</td>
+              <td>${r.status}</td>
+            </tr>`).join('')}</tbody></table>`;
+            }
+
+            div.innerHTML = html;
+        }
+
+        function atualizarTudo() {
+            carregarVagasLivres();
+            carregarEstacionados();
+            carregarSelectSaida();
+            atualizarDashboard();
+            carregarVagas();
+            carregarPrecos();
+        }
+
+        // Inicia
+        iniciar();
+    </script>
+</body>
+
+</html>
